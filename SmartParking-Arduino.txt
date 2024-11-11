@@ -1,0 +1,119 @@
+﻿#include <LiquidCrystal.h>
+#include <Servo.h> // Include Servo library
+
+// LCD setup
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+// Define LEDs for parking slots
+int led1 = A2;    // LED for Slot 1
+int led2 = A3;    // LED for Slot 2
+int led3 = A4;    // LED for Slot 3
+
+// Define PIR motion sensors and servo motors
+int pirEntry = A0;      // PIR sensor for entry
+int pirExit = A1;        // PIR sensor for exit
+Servo servoEntry;        // Servo motor for entry gate
+Servo servoExit;          // Servo motor for exit gate
+int entryServoPin = 9;    // Pin for entry gate servo
+int exitServoPin = 10;    // Pin for exit gate servo
+
+// Ultrasonic sensor pins
+int inches = 0;
+int cm = 0;
+
+long readUltrasonicDistance(int triggerPin, int echoPin) {
+    pinMode(triggerPin, OUTPUT);    // Clear the trigger
+    digitalWrite(triggerPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(triggerPin, HIGH); // Trigger for 10 microseconds
+    delayMicroseconds(10);
+    digitalWrite(triggerPin, LOW);
+    pinMode(echoPin, INPUT);
+    return pulseIn(echoPin, HIGH); // Return the time taken for the echo
+}
+
+void setup() {
+    // LCD setup
+    lcd.begin(16, 2);
+    Serial.begin(9600);
+
+    // Servo motor setup
+    servoEntry.attach(entryServoPin); // Attach the entry servo to its pin
+    servoExit.attach(exitServoPin);      // Attach the exit servo to its pin
+    servoEntry.write(0);    // Start with the entry gate closed (0 degrees)
+    servoExit.write(0);      // Start with the exit gate closed (0 degrees)
+
+    // PIR sensor setup
+    pinMode(pirEntry, INPUT); // Set PIR for entry as input
+    pinMode(pirExit, INPUT);    // Set PIR for exit as input
+
+    // Initialize LEDs as outputs
+    pinMode(led1, OUTPUT);
+    pinMode(led2, OUTPUT);
+    pinMode(led3, OUTPUT);
+}
+
+int cm1 = 0;
+int cm2 = 0;
+int cm3 = 0;
+
+void loop() {
+    int count = 0;
+
+    // Read ultrasonic sensor distances
+    cm1 = 0.01723 * readUltrasonicDistance(7, 7);
+    cm2 = 0.01723 * readUltrasonicDistance(6, 6);
+    cm3 = 0.01723 * readUltrasonicDistance(8, 8);
+
+    // Check parking slot 1, 2, 3 status and control LEDs
+    if (cm1 > 150) {
+        count++;
+        digitalWrite(led1, LOW);    // LED off (Slot 1 free)
+    } else {
+        digitalWrite(led1, HIGH); // LED on (Slot 1 full)
+    }
+
+    if (cm2 > 150) {
+        count++;
+        digitalWrite(led2, LOW);    // LED off (Slot 2 free)
+    } else {
+        digitalWrite(led2, HIGH); // LED on (Slot 2 full)
+    }
+
+    if (cm3 > 150) {
+        count++;
+        digitalWrite(led3, LOW);    // LED off (Slot 3 free)
+    } else {
+        digitalWrite(led3, HIGH); // LED on (Slot 3 full)
+    }
+
+    // Display free slots information on the LCD
+    lcd.setCursor(0, 0);
+    lcd.print(count);
+    lcd.print(" free slots");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Slot ");
+    if (cm3 > 150) lcd.print("1 ");
+    if (cm2 > 150) lcd.print("2 ");
+    if (cm1 > 150) lcd.print("3 ");
+    lcd.print("free");
+    if (cm3 < 150 && cm2 < 150 && cm1 < 150) lcd.print(" = 0");
+
+    delay(500);
+    lcd.clear();
+
+    // Handle entry gate with PIR sensor
+    if (digitalRead(pirEntry) == HIGH) { // Motion detected at entry
+        servoEntry.write(90);    // Open the gate (90 degrees)
+        delay(2000);                      // Wait 2 seconds
+        servoEntry.write(0);      // Close the gate (0 degrees)
+    }
+
+    // Handle exit gate with PIR sensor
+    if (digitalRead(pirExit) == HIGH) { // Motion detected at exit
+        servoExit.write(90);    // Open the gate (90 degrees)
+        delay(2000);                    // Wait 2 seconds
+        servoExit.write(0);      // Close the gate (0 degrees)
+    }
+}
